@@ -1,78 +1,139 @@
-# Student Journey Autopilot (n8n)
+# Student Journey Automation
 
-One n8n workflow that carries a student from webinar opt-in to course access to replay across
-**WordPress · GoHighLevel · Klaviyo · Zoom · LearnDash · Riverside**, plus a separate error
-workflow so nothing fails silently.
+An n8n implementation of the full student lifecycle for an online course business: webinar opt-in,
+nurture, purchase, course access and session replay. It runs across **WordPress, GoHighLevel, Klaviyo,
+Zoom, LearnDash and Riverside**, and includes a dedicated error-handling layer so failures are reported
+instead of silently dropping students.
 
-![Architecture](docs/architecture.png)
+![Architecture overview](docs/architecture.png)
 
-| File | What it is |
-|---|---|
-| `workflows/student-journey.json` | Main workflow: 3 webhook lanes (opt-in, purchase, replay) |
-| `workflows/error-alerts.json` | Error Trigger → Slack + email, plus a daily 7:30 credential health check |
-| `mock/mock_apis.py` | Local stand-in for all five APIs (stdlib Python), with failure injection |
-| `demo/fire.sh`, `demo/payloads/` | Test events: WP form, GHL form, WooCommerce order, Riverside recording |
-| `docs/architecture.{pdf,png,html}` | One-page visual for the proposal |
-| `scripts/build_workflows.py` | Generates the workflow JSON. Edit this, then re-run it |
+## Contents
 
-## Run the demo locally (no real accounts needed)
+- [Features](#features)
+- [Repository layout](#repository-layout)
+- [Quick start (local sandbox)](#quick-start-local-sandbox)
+- [Production deployment](#production-deployment)
+- [Design principles](#design-principles)
+- [Integration notes](#integration-notes)
 
-```bash
-python3 mock/mock_apis.py                                   # terminal 1
-docker run -it --rm -p 5678:5678 docker.n8n.io/n8nio/n8n    # terminal 2, or `npx n8n` (Node ≥ 24)
+## Features
+
+| Journey | Trigger | Outcome |
+|---|---|---|
+| **Webinar opt-in** | WordPress form or GoHighLevel funnel | GHL contact created and tagged, Zoom webinar registration (invite and reminders sent by Zoom), Klaviyo profile saved with the join link, nurture flow started |
+| **Purchase → access** | WooCommerce, GoHighLevel or Stripe order | WordPress account found or created, LearnDash course access granted, GHL tagged `enrolled`, Klaviyo onboarding event |
+| **Recording → replay** | Riverside recording ready | Zoom registrants and attendees retrieved, members-only replay post published, Klaviyo event per registrant with attendance status |
+| **Error handling** | Any failed execution; daily schedule | Automatic retries, Slack and email alerts with a link to the failed run, daily credential health check |
+
+## Repository layout
+
+```
+workflows/
+  student-journey.json     Main workflow: three webhook-triggered journeys
+  error-alerts.json        Error workflow and daily health check
+scripts/
+  build_workflows.py       Source of truth for both workflow files
+mock/
+  mock_apis.py             Local sandbox for GoHighLevel, Klaviyo, Zoom, WordPress/LearnDash and Slack
+demo/
+  fire.sh                  Sends sample events to the workflow
+  payloads/                Sample WordPress, GoHighLevel, WooCommerce and Riverside payloads
+  credentials.demo.json    Placeholder credentials for the sandbox
+docs/
+  architecture.{pdf,png,html}   Architecture overview
 ```
 
-1. In n8n, import both files in `workflows/`, then create the six credentials from `demo/credentials.demo.json`
-   (or with the CLI: `n8n import:credentials --input=demo/credentials.demo.json` and
-   `n8n import:workflow --input=workflows/<file>.json`, which keeps the credential and error-workflow links).
-2. In the main workflow's **Settings → Error workflow**, pick *Student Journey · Error Alerts + Health Check*
-   (UI imports get new IDs, so this link has to be re-selected).
-3. Activate both workflows, then:
+The workflow JSON is generated. Make changes in `scripts/build_workflows.py`, then run
+`python3 scripts/build_workflows.py` to regenerate both files.
+
+## Quick start (local sandbox)
+
+The sandbox exercises every journey end to end without any third-party accounts.
+
+**Requirements:** Python 3.9+, and n8n 1.x or 2.x (Docker, or Node.js 24+).
 
 ```bash
-./demo/fire.sh optin        # WordPress opt-in: GHL → Zoom → Klaviyo
-./demo/fire.sh optin-ghl    # GHL funnel opt-in (this lead is a no-show)
-./demo/fire.sh enroll       # WooCommerce order: WP user → LearnDash → GHL → Klaviyo
-./demo/fire.sh replay       # Riverside recording: Zoom attendance → WP post → Klaviyo per registrant
-./demo/fire.sh unmapped     # product with no course mapped → Slack alert
-./demo/fire.sh break zoom && ./demo/fire.sh optin   # 3 retries → Slack alert
-./demo/fire.sh heal
+python3 mock/mock_apis.py                                   # sandbox APIs on :4010
+docker run -it --rm -p 5678:5678 docker.n8n.io/n8nio/n8n    # or: npx n8n
 ```
 
-If n8n runs in Docker, change `MOCK` in both **Load Config** / **Alert Config** nodes to
-`http://host.docker.internal:4010`.
+1. Import both workflows and the sandbox credentials:
+   ```bash
+   n8n import:credentials --input=demo/credentials.demo.json
+   n8n import:workflow --input=workflows/error-alerts.json
+   n8n import:workflow --input=workflows/student-journey.json
+   ```
+   The CLI keeps the credential and error-workflow references intact. If you import through the
+   editor instead, reselect **Settings → Error workflow** on the main workflow.
+2. Activate both workflows.
+3. Send sample events:
+   ```bash
+   ./demo/fire.sh optin                                # WordPress opt-in
+   ./demo/fire.sh optin-ghl                            # GoHighLevel opt-in (registrant who does not attend)
+   ./demo/fire.sh enroll                               # WooCommerce purchase
+   ./demo/fire.sh replay                               # Riverside recording ready
+   ./demo/fire.sh unmapped                             # purchase of an unmapped product (raises an alert)
+   ./demo/fire.sh break zoom && ./demo/fire.sh optin   # simulated Zoom outage (retries, then alert)
+   ./demo/fire.sh heal                                 # restore the sandbox
+   ```
 
-## Going live
+The sandbox terminal logs every API call as it happens. `GET /__state` returns everything the sandbox has
+stored, and `GET /__log` returns the call log as JSON.
 
-1. In **Load Config** (and **Alert Config** / **Health Config**) set `DEMO = false` and fill in the IDs:
-   GHL location, Zoom account + webinar, Klaviyo list IDs per tag, WooCommerce product → LearnDash course map.
-2. Replace the demo credentials:
-   - **GoHighLevel**: Private Integration token → header `Authorization: Bearer pit-…`
-   - **Klaviyo**: private key → header `Authorization: Klaviyo-API-Key pk_…`
-   - **Zoom**: Server-to-Server OAuth app (scopes: `webinar:write:registrant`, `webinar:read:list_registrants`, `report:read:list_webinar_participants`) → Basic auth client id/secret
-   - **WordPress**: Application Password for a bot user who can manage users, posts and LearnDash enrollments
-   - **Journey Webhook Secret**: a long random value, sent as `X-Journey-Secret` by each source
-   - **Alerts SMTP** plus a Slack incoming-webhook URL in Alert Config
-3. Point the sources at the production webhook URLs (`/webhook/student-journey/{optin,enrollment,replay}`):
-   WP form plugin webhook add-on or GHL workflow "Webhook" action · WooCommerce *Order updated* webhook ·
-   Riverside.
-4. In Klaviyo, build the flows: *Added to list* (webinar nurture, using `{{ person.zoom_join_url }}`),
-   metric *Course Enrolled* (onboarding), and metric *Replay Ready* (split on `event.attended`).
-   Add the custom field `zoom_join_url` in GHL.
+When n8n runs in Docker, set `MOCK` to `http://host.docker.internal:4010` in the **Load Config**,
+**Alert Config** and **Health Config** nodes.
 
-### Assumptions to confirm with the client
-- **LMS**: built for LearnDash (`/ldlms/v2/sfwd-courses/{id}/users`). For Tutor LMS, LifterLMS or MemberPress,
-  only the *LearnDash · Grant Course Access* node changes.
-- **Riverside**: webhooks and API are only on Riverside's Business plan, and payload field names vary.
-  *Normalize Replay* accepts the common shapes. If there's no webhook, the same lane can hang off a
-  Google Drive / Dropbox "new file in export folder" trigger instead.
-- **GHL custom field** key `zoom_join_url` must exist in the location.
-- Zoom list endpoints are fetched at `page_size=300`. Add pagination for webinars larger than that.
+## Production deployment
 
-## Design notes
-- Each source has its own normalizer that maps it to one shape, and every lane after that reads from **Load Config**.
-- Every HTTP step retries 3× 3 s apart. After that the Error Trigger workflow posts the node, the API error and
-  the execution link.
-- Writes are idempotent (GHL upsert, WP find-or-create, LearnDash enroll, Klaviyo `unique_id`), so *Retry* is
-  always safe. The replay lane does its Zoom reads before any writes.
-- Unmapped products or tags throw on purpose, so a missing mapping raises an alert and the student isn't silently dropped.
+1. **Configuration.** In **Load Config**, **Alert Config** and **Health Config**, set `DEMO = false` and
+   provide the GoHighLevel location ID, Zoom account and webinar IDs, the tag → Klaviyo list map and the
+   product → LearnDash course map.
+2. **Credentials.**
+
+   | Credential | Type | Value |
+   |---|---|---|
+   | GoHighLevel Private Integration | Header auth | `Authorization: Bearer <private integration token>` |
+   | Klaviyo Private API Key | Header auth | `Authorization: Klaviyo-API-Key <private key>` |
+   | Zoom Server-to-Server App | Basic auth | Client ID and secret. Scopes: `webinar:write:registrant`, `webinar:read:list_registrants`, `report:read:list_webinar_participants` |
+   | WordPress Application Password | Basic auth | Service account with permission to manage users, posts and LearnDash enrollments |
+   | Journey Webhook Secret | Header auth | `X-Journey-Secret: <long random value>`, sent by every source |
+   | Alerts SMTP | SMTP | Outbound mail for alerts (Slack uses the incoming-webhook URL in Alert Config) |
+
+3. **Sources.** Point each source at its production webhook:
+
+   | Endpoint | Source |
+   |---|---|
+   | `POST /webhook/student-journey/optin` | WordPress form webhook or GoHighLevel workflow webhook action |
+   | `POST /webhook/student-journey/enrollment` | WooCommerce order webhook, GoHighLevel order webhook or Stripe `checkout.session.completed` |
+   | `POST /webhook/student-journey/replay` | Riverside recording webhook |
+
+4. **Klaviyo flows.** Create an *Added to list* flow for the webinar nurture (the join link is available as
+   `{{ person.zoom_join_url }}`), a *Course Enrolled* metric flow for onboarding, and a *Replay Ready*
+   metric flow split on `event.attended`.
+5. **GoHighLevel.** Create the contact custom field `zoom_join_url`.
+
+## Design principles
+
+- **Single configuration point.** Every ID and mapping lives in one node. No other node needs editing.
+- **Source normalization.** Each trigger maps its payload to one internal shape, so adding a new form or
+  checkout provider only touches its normalizer.
+- **Retries before alerts.** Every API call retries three times, three seconds apart. Failures that persist
+  reach Slack and email with the failing node, the API response and a link to the execution.
+- **Idempotent writes.** GoHighLevel upserts, WordPress find-or-create, LearnDash enrollment and Klaviyo
+  `unique_id` deduplication make every execution safe to retry.
+- **Reads before writes.** The replay journey completes all Zoom reads before publishing anything, so a
+  failure never leaves partial output.
+- **Fail loudly on configuration gaps.** An unmapped product or tag raises an alert rather than skipping
+  the student.
+- **Proactive monitoring.** A daily health check validates every credential before an expired token
+  affects a real signup.
+
+## Integration notes
+
+- **LMS.** Enrollment targets the LearnDash REST API (`/ldlms/v2/sfwd-courses/{id}/users`). Tutor LMS,
+  LifterLMS and MemberPress require changes to the *LearnDash · Grant Course Access* node only.
+- **Riverside.** Webhooks and API access require a Riverside Business plan, and payload fields vary by
+  configuration. *Normalize Replay* accepts the common formats. Without webhook access, the replay journey
+  can be triggered from a cloud storage folder watch on Riverside exports.
+- **Zoom pagination.** Registrant and attendee lists are fetched with `page_size=300`. Webinars larger
+  than that need pagination added.

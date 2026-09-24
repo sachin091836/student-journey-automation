@@ -1,0 +1,511 @@
+{
+  "id": "sjErrHandler0001",
+  "name": "Student Journey · Error Alerts + Health Check",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ff336fba-fd7e-504d-a0f9-b129a38b398f",
+      "name": "On Journey Failure",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEMO = true;\nconst MOCK = 'http://127.0.0.1:4010';   // host.docker.internal:4010 if n8n runs in Docker\nconst cfg = {\n  slackWebhookUrl: DEMO ? `${MOCK}/slack/webhook` : 'https://hooks.slack.com/services/XXX/YYY/ZZZ',\n  alertEmail:      'ops@your-academy.com',\n  ghlBase:         DEMO ? `${MOCK}/ghl`     : 'https://services.leadconnectorhq.com',\n  ghlLocationId:   'YOUR_GHL_LOCATION_ID',\n  klaviyoBase:     DEMO ? `${MOCK}/klaviyo` : 'https://a.klaviyo.com',\n  zoomTokenUrl:    DEMO ? `${MOCK}/zoom/oauth/token` : 'https://zoom.us/oauth/token',\n  zoomAccountId:   'YOUR_ZOOM_ACCOUNT_ID',\n  wpBase:          DEMO ? `${MOCK}/wp`      : 'https://your-academy.com',\n};\nreturn $input.all().map(({ json }) => ({ json: { ...json, cfg } }));\n"
+      },
+      "id": "fc5ee5ee-c3c7-588f-bd51-a09652fc17cb",
+      "name": "Alert Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error Trigger payload → one human-readable alert.\nconst e = $('Alert Config').first().json;\nconst exec = e.execution || {};\nconst failed = exec.error || e.trigger?.error || {};\nconst node = exec.lastNodeExecuted || failed.node?.name || 'trigger';\nconst status = failed.httpCode || failed.context?.httpCode || '';\nconst msg = String(failed.description || failed.message || 'Unknown error').slice(0, 500);\nconst wf = e.workflow?.name || 'Student Journey';\nconst url = exec.url || '';\nconst text = `:rotating_light: *${wf}* failed at *${node}*${status ? ` (HTTP ${status})` : ''}\\n>${msg}\\n` +\n             (url ? `<${url}|Open execution> → fix → click *Retry* (all steps are safe to re-run).` : '');\nreturn [{ json: { cfg: e.cfg, text, subject: `[n8n] ${wf} failed at ${node}`, node, msg, url } }];\n"
+      },
+      "id": "730aa00e-4b3a-5eac-ac27-aff68eca0329",
+      "name": "Format Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.cfg.slackWebhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "547baf78-d85b-5fde-bbfe-66f2f894e6ed",
+      "name": "Slack · #automation-alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "automations@your-academy.com",
+        "toEmail": "={{ $json.cfg.alertEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text.replace(/[*>]|:rotating_light:/g, '') }}",
+        "options": {}
+      },
+      "id": "9e8086fc-b8f9-568f-95ef-61dc9bd10fa3",
+      "name": "Email · Ops Inbox",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        740,
+        100
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "sjCredSmtp000001",
+          "name": "Alerts SMTP"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b33ec89d-d90c-5306-8847-d9af9095f5c4",
+      "name": "Daily 7:30am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEMO = true;\nconst MOCK = 'http://127.0.0.1:4010';   // host.docker.internal:4010 if n8n runs in Docker\nconst cfg = {\n  slackWebhookUrl: DEMO ? `${MOCK}/slack/webhook` : 'https://hooks.slack.com/services/XXX/YYY/ZZZ',\n  alertEmail:      'ops@your-academy.com',\n  ghlBase:         DEMO ? `${MOCK}/ghl`     : 'https://services.leadconnectorhq.com',\n  ghlLocationId:   'YOUR_GHL_LOCATION_ID',\n  klaviyoBase:     DEMO ? `${MOCK}/klaviyo` : 'https://a.klaviyo.com',\n  zoomTokenUrl:    DEMO ? `${MOCK}/zoom/oauth/token` : 'https://zoom.us/oauth/token',\n  zoomAccountId:   'YOUR_ZOOM_ACCOUNT_ID',\n  wpBase:          DEMO ? `${MOCK}/wp`      : 'https://your-academy.com',\n};\nreturn $input.all().map(({ json }) => ({ json: { ...json, cfg } }));\n"
+      },
+      "id": "472042de-0460-5347-bdc3-5371ad05375a",
+      "name": "Health Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Health Config').first().json.cfg.ghlBase }}/locations/{{ $('Health Config').first().json.cfg.ghlLocationId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc71e1fd-42e5-5fc6-a90d-0486e3c9cc97",
+      "name": "Ping GoHighLevel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Health Config').first().json.cfg.klaviyoBase }}/api/accounts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "2024-10-15"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d66e2038-c79b-5991-b1bc-55cd462167fa",
+      "name": "Ping Klaviyo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredKlaviyo001",
+          "name": "Klaviyo Private API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Health Config').first().json.cfg.zoomTokenUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "account_credentials"
+            },
+            {
+              "name": "account_id",
+              "value": "={{ $('Health Config').first().json.cfg.zoomAccountId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f1ab90b0-d239-5a6f-a51d-662e5ebbf191",
+      "name": "Ping Zoom",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredZoom000001",
+          "name": "Zoom Server-to-Server App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Health Config').first().json.cfg.wpBase }}/wp-json/wp/v2/users/me",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "id": "3e68f3f3-2b29-50f2-8839-8175eed07f4b",
+      "name": "Ping WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredWordpress1",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Each ping ran with \"continue on error\"; collect the ones that failed.\nconst checks = ['Ping GoHighLevel', 'Ping Klaviyo', 'Ping Zoom', 'Ping WordPress'];\nconst failures = checks\n  .map((n) => ({ n, j: $(n).first().json }))\n  .filter(({ j }) => j.error)\n  .map(({ n, j }) => `• ${n.replace('Ping ', '')}: ${String(j.error.message || j.error).slice(0, 200)}`);\nreturn [{ json: {\n  cfg: $('Health Config').first().json.cfg,\n  failed: failures.length,\n  text: `:warning: *Student Journey health check*: ${failures.length} integration(s) failing auth/API check — ` +\n        `new students would break here. Fix before the next opt-in:\\n${failures.join('\\n')}`,\n} }];\n"
+      },
+      "id": "e62c0166-824d-593e-896e-0d9c14b29f29",
+      "name": "Summarize Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2ef8f16c-aa7a-532e-8c63-d849d6dd2c2c",
+              "leftValue": "={{ $json.failed }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "41611cee-8301-5ff2-ab69-5fc9cb270892",
+      "name": "Anything Failing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.cfg.slackWebhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "09f73728-0a79-5f84-8fa5-69c833e45013",
+      "name": "Slack · Health Warning",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "content": "## Failure alerts\nFires whenever any step of the Student Journey workflow still fails after its retries. Slack + email, with the failing node, the API error, and a link to the execution.",
+        "width": 980,
+        "height": 170,
+        "color": 3
+      },
+      "id": "f722d13a-06bb-5cec-9e1b-9867f2a0f51b",
+      "name": "Note: Alerts",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Daily health check\nExpired tokens are the #1 silent killer of automations. Every morning we test each credential and warn in Slack **before** a real student hits the broken step.",
+        "width": 1600,
+        "height": 130,
+        "color": 5
+      },
+      "id": "d44cf74f-ac07-5604-84c9-fe0f2235c87d",
+      "name": "Note: Health",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "On Journey Failure": {
+      "main": [
+        [
+          {
+            "node": "Alert Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Config": {
+      "main": [
+        [
+          {
+            "node": "Format Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alert": {
+      "main": [
+        [
+          {
+            "node": "Slack · #automation-alerts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email · Ops Inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 7:30am": {
+      "main": [
+        [
+          {
+            "node": "Health Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Config": {
+      "main": [
+        [
+          {
+            "node": "Ping GoHighLevel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping GoHighLevel": {
+      "main": [
+        [
+          {
+            "node": "Ping Klaviyo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping Klaviyo": {
+      "main": [
+        [
+          {
+            "node": "Ping Zoom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping Zoom": {
+      "main": [
+        [
+          {
+            "node": "Ping WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping WordPress": {
+      "main": [
+        [
+          {
+            "node": "Summarize Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Health": {
+      "main": [
+        [
+          {
+            "node": "Anything Failing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything Failing?": {
+      "main": [
+        [
+          {
+            "node": "Slack · Health Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "pinData": {},
+  "tags": []
+}

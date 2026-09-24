@@ -1,0 +1,1406 @@
+{
+  "id": "sjStudentJourney",
+  "name": "Student Journey · Opt-in → Nurture → Enroll → Replay",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student-journey/optin",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "d6787931-240c-578b-8a5d-f994a9213736",
+      "name": "Opt-in · WordPress / GHL Form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "90fce444-8645-59cb-8054-d184153baa52",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredWebhook001",
+          "name": "Journey Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accepts WordPress form plugins (WPForms, Gravity, Elementor, CF7) or a\n// GoHighLevel funnel/workflow webhook and emits one clean lead.\nconst EMAIL_RE = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nreturn $input.all().map(({ json }) => {\n  const b = json.body || {};\n  const pick = (...keys) => keys.map((k) => b[k]).find((v) => v !== undefined && v !== null && v !== '');\n\n  const email = String(pick('email', 'Email', 'your-email', 'contact_email') || '').trim().toLowerCase();\n  if (!EMAIL_RE.test(email)) throw new Error(`Opt-in rejected: invalid email \"${email}\" from ${pick('source') || 'unknown form'}`);\n\n  let firstName = pick('first_name', 'firstName', 'fname');\n  let lastName = pick('last_name', 'lastName', 'lname');\n  if (!firstName && pick('name', 'full_name')) [firstName, ...lastName] = String(pick('name', 'full_name')).trim().split(/\\s+/);\n  if (Array.isArray(lastName)) lastName = lastName.join(' ');\n\n  const digits = String(pick('phone', 'Phone') || '').replace(/[^\\d+]/g, '');\n  const phone = digits.startsWith('+') ? digits : digits.length === 10 ? `+1${digits}` : null;\n\n  return {\n    json: {\n      event: 'optin',\n      email,\n      firstName: firstName || '',\n      lastName: lastName || '',\n      phone,\n      tag: pick('tag') || 'webinar-registered',\n      webinarId: pick('webinar_id', 'webinarId') || null,\n      source: pick('source') || (b.contact_id ? 'GoHighLevel funnel' : 'WordPress landing page'),\n      utm: { source: pick('utm_source') || null, campaign: pick('utm_campaign') || null },\n      receivedAt: $now.toISO(),\n    },\n  };\n});\n"
+      },
+      "id": "63f01b68-1f77-5d2d-a112-1c6ef1f8ac28",
+      "name": "Normalize Opt-in",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student-journey/enrollment",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "185288d9-b00a-5838-ad69-b0f2435cf39f",
+      "name": "Purchase · Woo / GHL / Stripe",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        460
+      ],
+      "webhookId": "d86f590b-aef3-57b0-a9dd-8555f3874bc7",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredWebhook001",
+          "name": "Journey Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accepts a WooCommerce order webhook, a GoHighLevel order/payment webhook,\n// or a Stripe checkout.session.completed event. Unpaid orders are ignored.\nreturn $input.all().flatMap(({ json }) => {\n  const b = json.body || {};\n  let order;\n  if (b.billing && b.line_items) {                                   // WooCommerce\n    if (!['processing', 'completed'].includes(b.status)) return [];\n    order = { orderId: `woo-${b.id}`, email: b.billing.email, firstName: b.billing.first_name,\n              lastName: b.billing.last_name, productIds: b.line_items.map((l) => String(l.product_id)) };\n  } else if (b.type === 'checkout.session.completed') {             // Stripe\n    const s = b.data.object;\n    order = { orderId: `stripe-${s.id}`, email: s.customer_details.email,\n              firstName: (s.customer_details.name || '').split(' ')[0], lastName: (s.customer_details.name || '').split(' ').slice(1).join(' '),\n              productIds: String(s.metadata.product_ids || s.metadata.product_id).split(',') };\n  } else {                                                          // GoHighLevel order\n    const c = b.contact || b;\n    order = { orderId: `ghl-${b.order_id || b.id}`, email: c.email, firstName: c.first_name, lastName: c.last_name,\n              productIds: [].concat(b.product_ids || b.product_id || []).map(String) };\n  }\n  if (!order.email || !order.productIds.length) throw new Error(`Enrollment payload missing email or products: ${JSON.stringify(b).slice(0, 300)}`);\n  return [{ json: { event: 'enrollment', tag: 'enrolled', ...order, email: order.email.trim().toLowerCase(), receivedAt: $now.toISO() } }];\n});\n"
+      },
+      "id": "d73dea98-4007-507c-b7fa-36649c5c6211",
+      "name": "Normalize Enrollment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student-journey/replay",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "fb07274f-6e5d-583e-a749-65ea26bdd7e0",
+      "name": "Recording Ready · Riverside",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        920
+      ],
+      "webhookId": "0e8ee258-f3f1-5369-9854-b83ab3ef536f",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredWebhook001",
+          "name": "Journey Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Riverside \"recording ready\" payload (Riverside Business API webhook, or a\n// forwarded export notification). Field names vary, so accept the common ones.\nreturn $input.all().map(({ json }) => {\n  const b = json.body || {};\n  const r = b.recording || b.data || b;\n  const replayUrl = r.share_link || r.shareUrl || r.video_url || r.download_url || r.url;\n  if (!replayUrl) throw new Error(`Riverside payload has no replay link: ${JSON.stringify(b).slice(0, 300)}`);\n  return {\n    json: {\n      event: 'replay',\n      sessionId: String(r.id || r.recording_id || r.session_id || $execution.id),\n      title: r.title || r.recording_title || r.studio_name || 'Session replay',\n      replayUrl,\n      recordedAt: r.recorded_at || r.created_at || $now.toISO(),\n      webinarId: b.zoom_webinar_id || r.zoom_webinar_id || null,\n    },\n  };\n});\n"
+      },
+      "id": "7547d0e8-a970-5a3d-aa7a-fe52922700b8",
+      "name": "Normalize Replay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        920
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ────────────────────────────────────────────────────────────────\n//  CONFIG: the only node you edit when IDs change.\n//  DEMO = true routes every API call to the local mock server\n//  (mock/mock_apis.py) so the whole journey can be fired with test data.\n// ────────────────────────────────────────────────────────────────\nconst DEMO = true;\nconst MOCK = 'http://127.0.0.1:4010';   // host.docker.internal:4010 if n8n runs in Docker\n\nconst cfg = {\n  ghlBase:         DEMO ? `${MOCK}/ghl`     : 'https://services.leadconnectorhq.com',\n  ghlLocationId:   'YOUR_GHL_LOCATION_ID',\n  klaviyoBase:     DEMO ? `${MOCK}/klaviyo` : 'https://a.klaviyo.com',\n  klaviyoRevision: '2024-10-15',\n  zoomBase:        DEMO ? `${MOCK}/zoom/v2` : 'https://api.zoom.us/v2',\n  zoomTokenUrl:    DEMO ? `${MOCK}/zoom/oauth/token` : 'https://zoom.us/oauth/token',\n  zoomAccountId:   'YOUR_ZOOM_ACCOUNT_ID',\n  zoomWebinarId:   '81234567890',            // default webinar for opt-ins\n  wpBase:          DEMO ? `${MOCK}/wp`      : 'https://your-academy.com',\n  wpLoginUrl:      'https://your-academy.com/login',\n  wpReplayCategoryId: 12,                     // members-only \"Replays\" category\n\n  // GHL tag  →  Klaviyo list whose \"added to list\" trigger starts the nurture flow\n  klaviyoLists: {\n    'webinar-registered': 'WEBINAR_NURTURE_LIST_ID',\n    'enrolled':           'STUDENT_ONBOARDING_LIST_ID',\n  },\n  // Checkout product ID (WooCommerce / GHL / Stripe)  →  LearnDash course ID\n  courseMap: {\n    '501': { courseId: 3101, name: 'Foundations Course' },\n    '502': { courseId: 3102, name: 'Advanced Masterclass' },\n  },\n};\n\n// Fail loudly on unmapped tags/products instead of silently dropping a student.\nreturn $input.all().map(({ json }) => {\n  if (json.event === 'optin' && !cfg.klaviyoLists[json.tag]) {\n    throw new Error(`No Klaviyo list mapped for GHL tag \"${json.tag}\" — add it to cfg.klaviyoLists`);\n  }\n  if (json.event === 'enrollment') {\n    const missing = json.productIds.filter((id) => !cfg.courseMap[id]);\n    if (missing.length) {\n      throw new Error(`Order ${json.orderId}: no LearnDash course mapped for product(s) ${missing.join(', ')} — add to cfg.courseMap`);\n    }\n    json.courses = json.productIds.map((id) => cfg.courseMap[id]);\n  }\n  if (json.event === 'replay') json.webinarId = json.webinarId || cfg.zoomWebinarId;\n  return { json: { ...json, cfg } };\n});\n"
+      },
+      "id": "8439ceed-3871-5cc4-b0f6-ddb5641dcb94",
+      "name": "Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "66ca43c6-ef34-5fd7-a5c8-58cd983518ad",
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "optin",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Opt-in"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d1584994-87a3-55b3-bc1c-eb2b363c2367",
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "enrollment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Enrollment"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8aade257-d82e-52b0-9ac0-34ef896336f5",
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "replay",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Replay"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "61d001a2-a2f0-5605-8b8a-7d55e86e652e",
+      "name": "Route by Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.ghlBase }}/contacts/upsert",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ locationId: $('Load Config').first().json.cfg.ghlLocationId, email: $('Load Config').first().json.email, firstName: $('Load Config').first().json.firstName, lastName: $('Load Config').first().json.lastName, phone: $('Load Config').first().json.phone || undefined, source: $('Load Config').first().json.source }) }}",
+        "options": {}
+      },
+      "id": "435b9a5f-eb50-510c-8ff9-254d13695884",
+      "name": "GHL · Upsert Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.ghlBase }}/contacts/{{ $('GHL · Upsert Contact').first().json.contact.id }}/tags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tags: [$('Load Config').first().json.tag] }) }}",
+        "options": {}
+      },
+      "id": "e78f0a3c-5cc5-5a4c-946c-b818e328cb3f",
+      "name": "GHL · Tag 'webinar-registered'",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.zoomTokenUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "account_credentials"
+            },
+            {
+              "name": "account_id",
+              "value": "={{ $('Load Config').first().json.cfg.zoomAccountId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cb11e5d3-d004-56e6-817b-f4746aeefa43",
+      "name": "Zoom · Get Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredZoom000001",
+          "name": "Zoom Server-to-Server App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.zoomBase }}/webinars/{{ $('Load Config').first().json.webinarId || $('Load Config').first().json.cfg.zoomWebinarId }}/registrants",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Zoom · Get Token').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $('Load Config').first().json.email, first_name: $('Load Config').first().json.firstName || 'Friend', last_name: $('Load Config').first().json.lastName, source_name: $('Load Config').first().json.source }) }}",
+        "options": {}
+      },
+      "id": "1986852d-15fe-5e88-b475-c33443ada625",
+      "name": "Zoom · Register for Webinar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.klaviyoBase }}/api/profile-import",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "={{ $('Load Config').first().json.cfg.klaviyoRevision }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: { type: 'profile', attributes: { email: $('Load Config').first().json.email, first_name: $('Load Config').first().json.firstName, last_name: $('Load Config').first().json.lastName, properties: { ghl_contact_id: $('GHL · Upsert Contact').first().json.contact.id, zoom_join_url: $('Zoom · Register for Webinar').first().json.join_url, journey_stage: $('Load Config').first().json.tag, lead_source: $('Load Config').first().json.source, utm_campaign: $('Load Config').first().json.utm.campaign } } } }) }}",
+        "options": {}
+      },
+      "id": "b6f27c6d-6189-5bac-83a2-d5483854a91e",
+      "name": "Klaviyo · Upsert Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1940,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredKlaviyo001",
+          "name": "Klaviyo Private API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.klaviyoBase }}/api/profile-subscription-bulk-create-jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "={{ $('Load Config').first().json.cfg.klaviyoRevision }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: { type: 'profile-subscription-bulk-create-job', attributes: { custom_source: 'Webinar opt-in (n8n)', profiles: { data: [ { type: 'profile', attributes: { email: $('Load Config').first().json.email, subscriptions: { email: { marketing: { consent: 'SUBSCRIBED' } } } } } ] } }, relationships: { list: { data: { type: 'list', id: $('Load Config').first().json.cfg.klaviyoLists[$('Load Config').first().json.tag] } } } } }) }}",
+        "options": {}
+      },
+      "id": "128ed49f-7c1a-56f3-af40-e201684d5e18",
+      "name": "Klaviyo · Add to Nurture List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2180,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredKlaviyo001",
+          "name": "Klaviyo Private API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $('Load Config').first().json.cfg.ghlBase }}/contacts/{{ $('GHL · Upsert Contact').first().json.contact.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ customFields: [ { key: 'zoom_join_url', field_value: $('Zoom · Register for Webinar').first().json.join_url } ] }) }}",
+        "options": {}
+      },
+      "id": "57f8f6e6-2593-52c2-8889-19d8f1eae983",
+      "name": "GHL · Save Zoom Join Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2420,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Load Config').first().json.cfg.wpBase }}/wp-json/wp/v2/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $('Load Config').first().json.email }}"
+            },
+            {
+              "name": "context",
+              "value": "edit"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a2c5ebd-7e24-5f28-a917-a05f5710d6b5",
+      "name": "WordPress · Find User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredWordpress1",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// WP user search is fuzzy; pick the exact email match (or none).\nconst email = $('Load Config').first().json.email;\nconst match = $input.all().map((i) => i.json).find((u) => (u.email || '').toLowerCase() === email);\nreturn [{ json: { wpUserId: match ? match.id : null } }];\n"
+      },
+      "id": "fc3b6873-3805-520f-b83a-4934ddc51f1d",
+      "name": "Match Exact Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cdd53bff-6494-5942-ba02-c636fa17fd49",
+              "leftValue": "={{ $json.wpUserId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "0f38e330-1d6f-5fb7-b41b-60dd2d868b9b",
+      "name": "Has WP Account?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1460,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.wpBase }}/wp-json/wp/v2/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ username: $('Load Config').first().json.email, email: $('Load Config').first().json.email, first_name: $('Load Config').first().json.firstName, last_name: $('Load Config').first().json.lastName, roles: ['subscriber'], password: $execution.id + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) }) }}",
+        "options": {}
+      },
+      "id": "77e21f3f-12a3-5f3c-a531-5cabf3310627",
+      "name": "WordPress · Create Student",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        600
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredWordpress1",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per course so each LearnDash grant is its own (retryable) call.\nconst ctx = $('Load Config').first().json;\nconst wpUserId = $json.wpUserId ?? $json.id;\nreturn ctx.courses.map((c) => ({ json: { wpUserId, courseId: c.courseId, courseName: c.name } }));\n"
+      },
+      "id": "cc4089f7-e5f6-5854-b978-38545e33ec5b",
+      "name": "Resolve Courses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.wpBase }}/wp-json/ldlms/v2/sfwd-courses/{{ $json.courseId }}/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ user_ids: [$json.wpUserId] }) }}",
+        "options": {}
+      },
+      "id": "fbf5a6d7-84b0-5c30-94d9-875449851d77",
+      "name": "LearnDash · Grant Course Access",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2180,
+        460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredWordpress1",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.ghlBase }}/contacts/upsert",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ locationId: $('Load Config').first().json.cfg.ghlLocationId, email: $('Load Config').first().json.email, firstName: $('Load Config').first().json.firstName, lastName: $('Load Config').first().json.lastName }) }}",
+        "options": {}
+      },
+      "id": "f50ac287-c43d-558f-a70a-42b8a5890a6e",
+      "name": "GHL · Upsert Student",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2420,
+        460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.ghlBase }}/contacts/{{ $json.contact.id }}/tags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tags: ['enrolled'] }) }}",
+        "options": {}
+      },
+      "id": "84596b88-40a5-51f0-a8c1-ba7ae7a19899",
+      "name": "GHL · Tag 'enrolled'",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredGhl0000001",
+          "name": "GoHighLevel Private Integration"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.klaviyoBase }}/api/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "={{ $('Load Config').first().json.cfg.klaviyoRevision }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: { type: 'event', attributes: { unique_id: $('Load Config').first().json.orderId, properties: { order_id: $('Load Config').first().json.orderId, courses: $('Load Config').first().json.courses.map(c => c.name), login_url: $('Load Config').first().json.cfg.wpLoginUrl }, metric: { data: { type: 'metric', attributes: { name: 'Course Enrolled' } } }, profile: { data: { type: 'profile', attributes: { email: $('Load Config').first().json.email, first_name: $('Load Config').first().json.firstName, properties: { journey_stage: 'enrolled' } } } } } } }) }}",
+        "options": {}
+      },
+      "id": "8122fdf9-287b-5369-99bc-3a123c8f5c20",
+      "name": "Klaviyo · 'Course Enrolled' Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2900,
+        460
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredKlaviyo001",
+          "name": "Klaviyo Private API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.zoomTokenUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "account_credentials"
+            },
+            {
+              "name": "account_id",
+              "value": "={{ $('Load Config').first().json.cfg.zoomAccountId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "347bace6-2a92-52b1-ba4e-3a57540dc9ad",
+      "name": "Zoom · Get Token (Replay)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredZoom000001",
+          "name": "Zoom Server-to-Server App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Load Config').first().json.cfg.zoomBase }}/webinars/{{ $('Load Config').first().json.webinarId }}/registrants",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "page_size",
+              "value": "300"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Zoom · Get Token (Replay)').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "efc04e08-2056-5f0b-bc23-4872104e01e3",
+      "name": "Zoom · List Registrants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Load Config').first().json.cfg.zoomBase }}/past_webinars/{{ $('Load Config').first().json.webinarId }}/participants",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "page_size",
+              "value": "300"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Zoom · Get Token (Replay)').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a856f7ba-a889-57a4-8e45-2ce2d8529cf9",
+      "name": "Zoom · List Attendees",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.wpBase }}/wp-json/wp/v2/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'Replay: ' + $('Load Config').first().json.title, status: 'publish', slug: 'replay-' + $('Load Config').first().json.sessionId, categories: [$('Load Config').first().json.cfg.wpReplayCategoryId], content: '<p>Recorded ' + DateTime.fromISO($('Load Config').first().json.recordedAt).toFormat('LLLL d, yyyy') + '.</p><p><a href=\"' + $('Load Config').first().json.replayUrl + '\">Watch the replay</a></p>' }) }}",
+        "options": {}
+      },
+      "id": "e2882295-4557-533a-a11b-eda2af4fdfa8",
+      "name": "WordPress · Publish Replay",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "sjCredWordpress1",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Everyone who registered gets the replay; the event says whether they attended\n// so Klaviyo can send \"thanks for coming\" vs \"you missed it\" copy.\nconst ctx = $('Load Config').first().json;\nconst regs = $('Zoom · List Registrants').first().json.registrants || [];\nconst attended = new Set(($('Zoom · List Attendees').first().json.participants || [])\n  .map((p) => (p.user_email || '').toLowerCase()));\nconst post = $('WordPress · Publish Replay').first().json;\nreturn regs.map((r) => {\n  const email = r.email.toLowerCase();\n  return { json: { email, firstName: r.first_name, attended: attended.has(email),\n                   replayUrl: ctx.replayUrl, pageUrl: post.link, title: ctx.title, sessionId: ctx.sessionId } };\n});\n"
+      },
+      "id": "67038772-1673-56e6-aee0-97cbe5f538f3",
+      "name": "Build Replay Audience",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        920
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Load Config').first().json.cfg.klaviyoBase }}/api/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "revision",
+              "value": "={{ $('Load Config').first().json.cfg.klaviyoRevision }}"
+            },
+            {
+              "name": "accept",
+              "value": "application/vnd.api+json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/vnd.api+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: { type: 'event', attributes: { unique_id: $json.sessionId + ':' + $json.email, properties: { title: $json.title, replay_url: $json.replayUrl, page_url: $json.pageUrl, attended: $json.attended }, metric: { data: { type: 'metric', attributes: { name: 'Replay Ready' } } }, profile: { data: { type: 'profile', attributes: { email: $json.email } } } } } }) }}",
+        "options": {}
+      },
+      "id": "d645e819-71fc-585f-a72b-523c8a20373f",
+      "name": "Klaviyo · 'Replay Ready' Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2180,
+        920
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCredKlaviyo001",
+          "name": "Klaviyo Private API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## ① Entry points\nThree webhooks (shared-secret header auth). Each normalizer turns whatever the source sends — WP form plugins, GHL, WooCommerce, Stripe, Riverside — into one clean shape.\n\n**Load Config** is the only node a human edits: IDs, tag→list and product→course maps. Unmapped tags/products fail loudly.",
+        "width": 700,
+        "height": 240,
+        "color": 7
+      },
+      "id": "84832cdd-d591-5e1a-a417-5893e9ac9209",
+      "name": "Note: Entry",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ② Webinar opt-in\nGHL contact + tag → Zoom registrant (Zoom emails the calendar invite & reminders) → Klaviyo profile **with the join link already on it** → added to the nurture list that triggers the flow.",
+        "width": 1680,
+        "height": 240,
+        "color": 4
+      },
+      "id": "1ca313b4-010a-5f45-af6a-ab2374548712",
+      "name": "Note: Optin",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        940,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ③ Purchase → course access\nFind-or-create the WordPress student, grant each LearnDash course, tag 'enrolled' in GHL, fire Klaviyo 'Course Enrolled' (onboarding flow; exits the webinar nurture).",
+        "width": 2160,
+        "height": 170,
+        "color": 6
+      },
+      "id": "063dc86b-d010-5379-b2a3-93b0a5a3e15b",
+      "name": "Note: Enroll",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        940,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ④ Recording → replay\nRiverside recording ready → attendance from Zoom → members-only replay post in WordPress → one Klaviyo 'Replay Ready' event per registrant with `attended` true/false.",
+        "width": 1440,
+        "height": 170,
+        "color": 5
+      },
+      "id": "1fe2910d-e500-5419-a0e9-385d0bc6af49",
+      "name": "Note: Replay",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        940,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑤ Nothing fails silently\nEvery API step retries 3× (3 s apart). If it still fails, the **Student Journey · Error Alerts** workflow posts to Slack + email with the failing node and a one-click link to the execution. All writes are upserts / idempotent (Klaviyo `unique_id`, WP slug), so “Retry” is always safe.",
+        "width": 700,
+        "height": 200,
+        "color": 3
+      },
+      "id": "2e11759a-fb21-588e-a7e6-e30fab7c17ff",
+      "name": "Note: Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        1180
+      ]
+    }
+  ],
+  "connections": {
+    "Opt-in · WordPress / GHL Form": {
+      "main": [
+        [
+          {
+            "node": "Normalize Opt-in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Opt-in": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Purchase · Woo / GHL / Stripe": {
+      "main": [
+        [
+          {
+            "node": "Normalize Enrollment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Enrollment": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recording Ready · Riverside": {
+      "main": [
+        [
+          {
+            "node": "Normalize Replay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Replay": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Config": {
+      "main": [
+        [
+          {
+            "node": "Route by Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event": {
+      "main": [
+        [
+          {
+            "node": "GHL · Upsert Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WordPress · Find User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zoom · Get Token (Replay)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL · Upsert Contact": {
+      "main": [
+        [
+          {
+            "node": "GHL · Tag 'webinar-registered'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL · Tag 'webinar-registered'": {
+      "main": [
+        [
+          {
+            "node": "Zoom · Get Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoom · Get Token": {
+      "main": [
+        [
+          {
+            "node": "Zoom · Register for Webinar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoom · Register for Webinar": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo · Upsert Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Klaviyo · Upsert Profile": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo · Add to Nurture List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Klaviyo · Add to Nurture List": {
+      "main": [
+        [
+          {
+            "node": "GHL · Save Zoom Join Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress · Find User": {
+      "main": [
+        [
+          {
+            "node": "Match Exact Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Exact Email": {
+      "main": [
+        [
+          {
+            "node": "Has WP Account?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has WP Account?": {
+      "main": [
+        [
+          {
+            "node": "Resolve Courses",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WordPress · Create Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress · Create Student": {
+      "main": [
+        [
+          {
+            "node": "Resolve Courses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Courses": {
+      "main": [
+        [
+          {
+            "node": "LearnDash · Grant Course Access",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LearnDash · Grant Course Access": {
+      "main": [
+        [
+          {
+            "node": "GHL · Upsert Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL · Upsert Student": {
+      "main": [
+        [
+          {
+            "node": "GHL · Tag 'enrolled'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL · Tag 'enrolled'": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo · 'Course Enrolled' Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoom · Get Token (Replay)": {
+      "main": [
+        [
+          {
+            "node": "Zoom · List Registrants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoom · List Registrants": {
+      "main": [
+        [
+          {
+            "node": "Zoom · List Attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoom · List Attendees": {
+      "main": [
+        [
+          {
+            "node": "WordPress · Publish Replay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress · Publish Replay": {
+      "main": [
+        [
+          {
+            "node": "Build Replay Audience",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Replay Audience": {
+      "main": [
+        [
+          {
+            "node": "Klaviyo · 'Replay Ready' Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "sjErrHandler0001",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "America/New_York"
+  },
+  "pinData": {},
+  "tags": []
+}

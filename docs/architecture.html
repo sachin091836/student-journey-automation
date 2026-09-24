@@ -1,0 +1,208 @@
+<title>Student Journey Autopilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&family=Overpass+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --paper: #f4f5f1;
+    --card: #ffffff;
+    --ink: #16202a;
+    --muted: #5b6670;
+    --rule: #d6dad2;
+    --optin: #0d8a7a;
+    --enroll: #4a4fd0;
+    --replay: #c47f00;
+    --alarm: #cf3339;
+    --alarm-soft: #fbe9e8;
+    --station: #ffffff;
+    --chip: #e9ece5;
+    --sans: "Overpass", "Helvetica Neue", Arial, sans-serif;
+    --mono: "Overpass Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #11171d; --card: #182028; --ink: #e8ece8; --muted: #9aa5ad; --rule: #2c3640;
+      --optin: #2fc1ad; --enroll: #8c90ff; --replay: #f0a92a; --alarm: #ff6b6f; --alarm-soft: #2a1a1c;
+      --station: #11171d; --chip: #222c35;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #11171d; --card: #182028; --ink: #e8ece8; --muted: #9aa5ad; --rule: #2c3640;
+    --optin: #2fc1ad; --enroll: #8c90ff; --replay: #f0a92a; --alarm: #ff6b6f; --alarm-soft: #2a1a1c;
+    --station: #11171d; --chip: #222c35;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--ink); font-family: var(--sans);
+    font-size: 14px; line-height: 1.45; padding: 28px 24px 36px;
+  }
+  .sheet { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px; }
+
+  header { display: grid; grid-template-columns: 1.25fr 1fr; gap: 28px; align-items: end;
+           border-bottom: 3px solid var(--ink); padding-bottom: 16px; }
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-weight: 900; font-size: clamp(30px, 4.2vw, 46px); line-height: .98; letter-spacing: -.02em;
+       margin: 6px 0 0; text-wrap: balance; }
+  .problem { font-size: 15px; color: var(--ink); max-width: 60ch; margin: 0; }
+  .problem b { font-weight: 800; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 18px; height: 5px; border-radius: 3px; display: inline-block; }
+
+  /* ── transit lines ─────────────────────────────── */
+  .lines { display: grid; gap: 16px; }
+  .line { display: grid; grid-template-columns: 210px 1fr; gap: 18px; align-items: start;
+          background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px 14px; }
+  .terminus { display: grid; gap: 4px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
+  .badge b { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: grid; place-items: center;
+             font-size: 13px; font-weight: 900; }
+  .terminus .src { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .terminus .hook { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px dashed var(--rule);
+                    border-radius: 4px; padding: 2px 6px; width: fit-content; }
+
+  .track { position: relative; display: grid;
+           grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
+  .track::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 6px;
+                   background: var(--c); border-radius: 3px; }
+  .track::after { content: ""; position: absolute; right: -2px; top: 8px; width: 0; height: 0;
+                  border-left: 12px solid var(--c); border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
+  .stop { position: relative; display: grid; grid-template-rows: 26px auto auto auto; gap: 5px; justify-items: start; align-content: start; padding-right: 6px; }
+  .stop .dot { align-self: center; }
+  .dot { width: 20px; height: 20px; border-radius: 50%; background: var(--station); border: 5px solid var(--c);
+         position: relative; z-index: 1; }
+  .stop.goal .dot { width: 26px; height: 26px; margin-top: 0; border-width: 6px; box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--c); }
+  .tool { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+          padding: 1px 6px; border-radius: 3px; background: var(--chip); color: var(--ink); }
+  .act { font-size: 13.5px; font-weight: 600; line-height: 1.25; text-wrap: balance; }
+  .why { font-size: 12px; color: var(--muted); line-height: 1.3; }
+
+  .l-optin { --c: var(--optin); }
+  .l-enroll { --c: var(--enroll); }
+  .l-replay { --c: var(--replay); }
+  .badge b { background: var(--c); }
+
+  /* ── control room ───────────────────────────────── */
+  .control { border: 2px solid var(--alarm); border-radius: 6px; background: var(--alarm-soft); padding: 16px 18px; display: grid; gap: 12px; }
+  .control h2 { margin: 0; font-size: 17px; font-weight: 900; color: var(--alarm); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+  .control h2 small { font-family: var(--mono); font-size: 11.5px; font-weight: 400; color: var(--muted); }
+  .guards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  .guard { display: grid; gap: 4px; align-content: start; border-top: 2px solid var(--alarm); padding-top: 8px; }
+  .guard b { font-size: 13.5px; }
+  .guard span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .alert { font-family: var(--mono); font-size: 11.5px; background: var(--card); border: 1px solid var(--rule);
+           border-left: 4px solid var(--alarm); border-radius: 4px; padding: 8px 10px; line-height: 1.5; overflow-x: auto; white-space: pre; }
+
+  footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-family: var(--mono);
+           font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
+  footer b { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 900px) {
+    header { grid-template-columns: 1fr; }
+    .line { grid-template-columns: 1fr; }
+    .guards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    body { padding-inline: 16px; }
+    .track { grid-template-columns: 1fr; gap: 14px; padding-left: 34px; padding-top: 0; }
+    .track::before { left: 7px; right: auto; top: 0; bottom: 0; width: 6px; height: auto; }
+    .track::after { display: none; }
+    .stop { grid-template-columns: 1fr; grid-template-rows: none; }
+    .dot { position: absolute; left: -34px; top: 0; margin: 0; }
+    .stop.goal .dot { left: -37px; top: -3px; }
+    .guards { grid-template-columns: 1fr; }
+  }
+  @media print {
+    @page { size: 14in 11in; margin: .3in; }
+    body { padding: 0; font-size: 12px; }
+    .sheet { gap: 12px; max-width: none; }
+    .line { padding: 10px 14px; grid-template-columns: 210px 1fr; }
+    header { grid-template-columns: 1.25fr 1fr; }
+    .guards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+</style>
+
+<div class="sheet">
+  <header>
+    <div>
+      <div class="eyebrow">Proposal attachment · n8n architecture</div>
+      <h1>Student Journey Autopilot</h1>
+    </div>
+    <div>
+      <p class="problem">Today the same student lives in six tools and a person copies them between each one. Leads get dropped and access gets granted late. <b>One n8n workflow now carries every handoff</b>, and a separate alert workflow speaks up the moment any step fails.</p>
+      <div class="legend" aria-label="Line legend">
+        <span><i style="background:var(--optin)"></i>Opt-in line</span>
+        <span><i style="background:var(--enroll)"></i>Enrollment line</span>
+        <span><i style="background:var(--replay)"></i>Replay line</span>
+        <span><i style="background:var(--alarm)"></i>Error layer</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="lines" aria-label="Journey lines">
+    <article class="line l-optin">
+      <div class="terminus">
+        <span class="badge"><b>A</b>Webinar opt-in</span>
+        <span class="src">WordPress landing page or GoHighLevel funnel form</span>
+        <span class="hook">POST /student-journey/optin</span>
+      </div>
+      <div class="track" style="--n:6">
+        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Contact upserted</span><span class="why">No duplicates, even on resubmits</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Tagged “webinar-registered”</span><span class="why">Tag drives list choice downstream</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">Zoom</span><span class="act">Webinar registrant added</span><span class="why">Zoom sends the calendar invite and reminders</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">Profile saved with join link</span><span class="why">Written before the flow fires, so email 1 has it</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">Added to nurture list</span><span class="why">List’s flow starts the nurture sequence</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Join link saved on contact</span><span class="why">Available for SMS reminders</span></div>
+      </div>
+    </article>
+
+    <article class="line l-enroll">
+      <div class="terminus">
+        <span class="badge"><b>B</b>Purchase → access</span>
+        <span class="src">WooCommerce order, GHL order or Stripe checkout</span>
+        <span class="hook">POST /student-journey/enrollment</span>
+      </div>
+      <div class="track" style="--n:4">
+        <div class="stop"><span class="dot"></span><span class="tool">WordPress</span><span class="act">Student account found or created</span><span class="why">Exact email match, never a second account</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool">LearnDash</span><span class="act">Course unlocked</span><span class="why">One grant per product purchased; nobody flips a switch</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Tagged “enrolled”</span><span class="why">Sales pipeline stays accurate</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">“Course Enrolled” event</span><span class="why">Starts onboarding, ends the webinar nurture</span></div>
+      </div>
+    </article>
+
+    <article class="line l-replay">
+      <div class="terminus">
+        <span class="badge"><b>C</b>Recording → replay</span>
+        <span class="src">Riverside recording ready</span>
+        <span class="hook">POST /student-journey/replay</span>
+      </div>
+      <div class="track" style="--n:3">
+        <div class="stop"><span class="dot"></span><span class="tool">Zoom</span><span class="act">Registrants and attendees pulled</span><span class="why">Reads happen first, so a failure leaves nothing half-done</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool">WordPress</span><span class="act">Members-only replay post published</span><span class="why">Riverside link embedded in the Replays category</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">“Replay Ready” event per registrant</span><span class="why">attended = true / false picks “thanks for coming” or “you missed it”</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="control" aria-label="Error handling layer">
+    <h2>Error layer: nothing fails silently <small>separate workflow · Error Trigger + daily schedule</small></h2>
+    <div class="guards">
+      <div class="guard"><b>Retry 3× on every API call</b><span>3 seconds apart, which absorbs rate limits and brief outages without anyone noticing.</span></div>
+      <div class="guard"><b>Slack + email alert</b><span>Names the tool, the failing step and the API error, with a link to the exact run.</span></div>
+      <div class="guard"><b>Safe one-click retry</b><span>Every write is an upsert or deduplicated (Klaviyo unique_id), so rerunning never double-sends.</span></div>
+      <div class="guard"><b>Loud on bad config</b><span>A new product with no course mapped, or a tag with no list, raises an alert instead of dropping the student.</span></div>
+      <div class="guard"><b>7:30 am health check</b><span>Tests all four credentials daily and warns before an expired token reaches a real signup.</span></div>
+    </div>
+    <div class="alert">🚨 Student Journey failed at Zoom · Register for Webinar (HTTP 503)
+&gt; Zoom is temporarily unavailable
+Open execution → fix → click Retry (all steps are safe to re-run).</div>
+  </section>
+
+  <footer>
+    <span><b>2 n8n workflows</b> · 3 webhook triggers · 44 nodes · <b>1 Config node</b> holds every ID and mapping</span>
+    <span>Ships with a local mock of all five APIs so the full journey runs on test data</span>
+  </footer>
+</div>

@@ -1,0 +1,6 @@
+{
+  "id": 48213,
+  "status": "processing",
+  "billing": { "first_name": "Maya", "last_name": "Chen", "email": "maya.chen@example.com" },
+  "line_items": [ { "product_id": 501, "name": "Foundations Course", "quantity": 1 } ]
+}

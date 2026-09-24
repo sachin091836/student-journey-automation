@@ -1,0 +1,6 @@
+{
+  "id": 48214,
+  "status": "completed",
+  "billing": { "first_name": "Sam", "last_name": "Okafor", "email": "sam@example.com" },
+  "line_items": [ { "product_id": 777, "name": "New Bundle (not mapped yet)", "quantity": 1 } ]
+}

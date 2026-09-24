@@ -295,8 +295,8 @@ def build_main():
     n1 = code(f, "Normalize Opt-in", NORMALIZE_OPTIN_JS, (240, 0))
     t2 = webhook(f, "Purchase · Woo / GHL / Stripe", "student-journey/enrollment", (0, 460))
     n2 = code(f, "Normalize Enrollment", NORMALIZE_ENROLL_JS, (240, 460))
-    t3 = webhook(f, "Recording Ready · Riverside", "student-journey/replay", (0, 920))
-    n3 = code(f, "Normalize Replay", NORMALIZE_REPLAY_JS, (240, 920))
+    t3 = webhook(f, "Recording Ready · Riverside", "student-journey/replay", (0, 1000))
+    n3 = code(f, "Normalize Replay", NORMALIZE_REPLAY_JS, (240, 1000))
     cfg = code(f, "Load Config", CONFIG_JS, (480, 460))
     route = f.add("Route by Event", "n8n-nodes-base.switch", 3.2, {
         "rules": {"values": [
@@ -390,22 +390,22 @@ def build_main():
     f.chain(wres, ld, ghl_up2, ghl_tag2, kev)
 
     # ── Lane 3: replay ────────────────────────────────────────────────
-    ztok3 = http(f, "Zoom · Get Token (Replay)", "POST", f"={{{{ {CTX}.cfg.zoomTokenUrl }}}}", (X(0), 920), cred="zoom",
+    ztok3 = http(f, "Zoom · Get Token (Replay)", "POST", f"={{{{ {CTX}.cfg.zoomTokenUrl }}}}", (X(0), 1000), cred="zoom",
                  query=[("grant_type", "account_credentials"), ("account_id", f"={{{{ {CTX}.cfg.zoomAccountId }}}}")])
     bearer3 = [("Authorization", "=Bearer {{ $('Zoom · Get Token (Replay)').first().json.access_token }}")]
     zregs = http(f, "Zoom · List Registrants", "GET", f"={{{{ {CTX}.cfg.zoomBase }}}}/webinars/{{{{ {CTX}.webinarId }}}}/registrants",
-                 (X(1), 920), headers=bearer3, query=[("page_size", "300")])
+                 (X(1), 1000), headers=bearer3, query=[("page_size", "300")])
     zatt = http(f, "Zoom · List Attendees", "GET", f"={{{{ {CTX}.cfg.zoomBase }}}}/past_webinars/{{{{ {CTX}.webinarId }}}}/participants",
-                (X(2), 920), headers=bearer3, query=[("page_size", "300")])
+                (X(2), 1000), headers=bearer3, query=[("page_size", "300")])
     wpost = http(f, "WordPress · Publish Replay", "POST", f"={{{{ {CTX}.cfg.wpBase }}}}/wp-json/wp/v2/posts",
-                 (X(3), 920), cred="wp", body=(
+                 (X(3), 1000), cred="wp", body=(
                      "={{ JSON.stringify({ title: 'Replay: ' + " + CTX + ".title, status: 'publish', "
                      "slug: 'replay-' + " + CTX + ".sessionId, categories: [" + CTX + ".cfg.wpReplayCategoryId], "
                      "content: '<p>Recorded ' + DateTime.fromISO(" + CTX + ".recordedAt).toFormat('LLLL d, yyyy') + '.</p>"
                      "<p><a href=\"' + " + CTX + ".replayUrl + '\">Watch the replay</a></p>' }) }}"))
-    aud = code(f, "Build Replay Audience", REPLAY_AUDIENCE_JS, (X(4), 920))
+    aud = code(f, "Build Replay Audience", REPLAY_AUDIENCE_JS, (X(4), 1000))
     kev3 = http(f, "Klaviyo · 'Replay Ready' Event", "POST", f"={{{{ {CTX}.cfg.klaviyoBase }}}}/api/events",
-                (X(5), 920), cred="klaviyo", headers=KLAVIYO_HEADERS, body=(
+                (X(5), 1000), cred="klaviyo", headers=KLAVIYO_HEADERS, body=(
                     "={{ JSON.stringify({ data: { type: 'event', attributes: { unique_id: $json.sessionId + ':' + $json.email, "
                     "properties: { title: $json.title, replay_url: $json.replayUrl, page_url: $json.pageUrl, attended: $json.attended }, "
                     "metric: { data: { type: 'metric', attributes: { name: 'Replay Ready' } } }, "
@@ -426,11 +426,11 @@ def build_main():
              (X(0) - 40, 200), 2160, 170, 6)
     f.sticky("Replay", "## ④ Recording → replay\nRiverside recording ready → attendance from Zoom → members-only replay post "
              "in WordPress → one Klaviyo 'Replay Ready' event per registrant with `attended` true/false.",
-             (X(0) - 40, 700), 1440, 170, 5)
+             (X(0) - 40, 780), 1440, 170, 5)
     f.sticky("Errors", "## ⑤ Nothing fails silently\nEvery API step retries 3× (3 s apart). If it still fails, the "
              "**Student Journey · Error Alerts** workflow posts to Slack + email with the failing node and a one-click "
              "link to the execution. All writes are upserts / idempotent (Klaviyo `unique_id`, WP slug), so "
-             "“Retry” is always safe.", (-40, 1180), 700, 200, 3)
+             "“Retry” is always safe.", (-40, 1260), 700, 200, 3)
 
     return {
         "id": MAIN_ID,

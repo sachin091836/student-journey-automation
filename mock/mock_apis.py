@@ -11,6 +11,7 @@ Failure injection (for demoing the alert layer):
     curl -X POST localhost:4010/__fail/zoom     # every Zoom call now returns 503
     curl -X POST localhost:4010/__heal          # back to normal
     curl localhost:4010/__state                 # everything the mock has stored
+    curl localhost:4010/__log?since=0           # every logged handoff as JSON
 """
 import hashlib
 import json
@@ -35,8 +36,12 @@ def sid(prefix, s):
     return prefix + hashlib.sha1(s.encode()).hexdigest()[:8]
 
 
+LOG = []  # plain-text copy of every line, served at /__log for recordings/dashboards
+
+
 def log(svc, msg):
     t = datetime.now().strftime("%H:%M:%S")
+    LOG.append({"t": t, "svc": svc, "label": LABEL[svc], "msg": re.sub(r"\033\[[0-9;]*m", "", msg)})
     print(f"{DIM}{t}{RESET} {COLORS[svc]}{BOLD}{LABEL[svc]:>11}{RESET}  {msg}", flush=True)
 
 
@@ -85,11 +90,14 @@ class Handler(BaseHTTPRequestHandler):
             state["failing"].clear()
             log("mock", "all services healthy again")
             return self._send(200, {"failing": []})
+        if svc == "__log":
+            return self._send(200, LOG[int(q.get("since", 0)):])
         if svc == "__state":
             return self._send(200, {k: (sorted(v) if isinstance(v, set) else v) for k, v in state.items()})
         if svc == "__reset":
             for k, v in state.items():
                 v.clear()
+            LOG.clear()
             log("mock", "state cleared")
             return self._send(200, {"ok": True})
 
@@ -208,6 +216,7 @@ class Handler(BaseHTTPRequestHandler):
     # ── Slack incoming webhook ──────────────────────────────────────
     def svc_slack(self, m, p, q, b):
         state["alerts"].append(b.get("text"))
+        LOG.append({"t": datetime.now().strftime("%H:%M:%S"), "svc": "slack", "label": "Slack", "msg": b.get("text") or ""})
         print(f"\n{COLORS['slack']}{BOLD}┌─ Slack #automation-alerts ─────────────────────────────{RESET}")
         for line in (b.get("text") or "").splitlines():
             print(f"{COLORS['slack']}│{RESET} {line}")

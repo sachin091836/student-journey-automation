@@ -13,7 +13,6 @@ workflow so nothing fails silently.
 | `mock/mock_apis.py` | Local stand-in for all five APIs (stdlib Python), with failure injection |
 | `demo/fire.sh`, `demo/payloads/` | Test events: WP form, GHL form, WooCommerce order, Riverside recording |
 | `docs/architecture.{pdf,png,html}` | One-page visual for the proposal |
-| `docs/LOOM_SCRIPT.md` | Timed 3-minute walkthrough script |
 | `scripts/build_workflows.py` | Generates the workflow JSON. Edit this, then re-run it |
 
 ## Run the demo locally (no real accounts needed)

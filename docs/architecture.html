@@ -1,208 +1,281 @@
 <title>Student Journey Autopilot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800;900&family=Overpass+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
 <style>
+  /* Single, deliberate dark world: this is a presentation piece, not a UI. */
   :root {
-    --paper: #f4f5f1;
-    --card: #ffffff;
-    --ink: #16202a;
-    --muted: #5b6670;
-    --rule: #d6dad2;
-    --optin: #0d8a7a;
-    --enroll: #4a4fd0;
-    --replay: #c47f00;
-    --alarm: #cf3339;
-    --alarm-soft: #fbe9e8;
-    --station: #ffffff;
-    --chip: #e9ece5;
-    --sans: "Overpass", "Helvetica Neue", Arial, sans-serif;
-    --mono: "Overpass Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --paper: #11171d; --card: #182028; --ink: #e8ece8; --muted: #9aa5ad; --rule: #2c3640;
-      --optin: #2fc1ad; --enroll: #8c90ff; --replay: #f0a92a; --alarm: #ff6b6f; --alarm-soft: #2a1a1c;
-      --station: #11171d; --chip: #222c35;
-    }
-  }
-  :root[data-theme="dark"] {
     color-scheme: dark;
-    --paper: #11171d; --card: #182028; --ink: #e8ece8; --muted: #9aa5ad; --rule: #2c3640;
-    --optin: #2fc1ad; --enroll: #8c90ff; --replay: #f0a92a; --alarm: #ff6b6f; --alarm-soft: #2a1a1c;
-    --station: #11171d; --chip: #222c35;
+    --bg: #080c1a;
+    --bg-2: #0d1328;
+    --panel: rgba(255, 255, 255, .035);
+    --panel-edge: rgba(255, 255, 255, .08);
+    --hair: rgba(255, 255, 255, .07);
+    --text: #eef1fa;
+    --soft: #b9c0d8;
+    --muted: #7d86a6;
+    --optin: #3ee6c4;
+    --enroll: #9aa6ff;
+    --replay: #ffbe5c;
+    --alarm: #ff5d6c;
+    --gold: #e9d6a7;
+    --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+    --sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   }
-
   * { box-sizing: border-box; }
+  html { background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
-    background: var(--paper); color: var(--ink); font-family: var(--sans);
-    font-size: 14px; line-height: 1.45; padding: 28px 24px 36px;
+    margin: 0; color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    padding: 44px 32px 40px;
+    background:
+      radial-gradient(900px 520px at 88% -8%, rgba(154, 166, 255, .16), transparent 60%),
+      radial-gradient(700px 480px at -5% 38%, rgba(62, 230, 196, .10), transparent 60%),
+      radial-gradient(800px 500px at 60% 110%, rgba(255, 93, 108, .08), transparent 60%),
+      var(--bg);
+    -webkit-font-smoothing: antialiased;
   }
-  .sheet { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px; }
+  .sheet { max-width: 1240px; margin: 0 auto; display: grid; gap: 26px; }
 
-  header { display: grid; grid-template-columns: 1.25fr 1fr; gap: 28px; align-items: end;
-           border-bottom: 3px solid var(--ink); padding-bottom: 16px; }
-  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-  h1 { font-weight: 900; font-size: clamp(30px, 4.2vw, 46px); line-height: .98; letter-spacing: -.02em;
-       margin: 6px 0 0; text-wrap: balance; }
-  .problem { font-size: 15px; color: var(--ink); max-width: 60ch; margin: 0; }
-  .problem b { font-weight: 800; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend i { width: 18px; height: 5px; border-radius: 3px; display: inline-block; }
+  /* ── hero ─────────────────────────────────────────── */
+  .hero { display: grid; grid-template-columns: 1.35fr 1fr; gap: 40px; align-items: end; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold);
+             display: flex; align-items: center; gap: 12px; }
+  .eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--gold); opacity: .7; }
+  h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6.4vw, 78px); line-height: .95;
+       letter-spacing: -.015em; margin: 14px 0 0; text-wrap: balance; }
+  h1 em { font-style: italic; background: linear-gradient(100deg, var(--optin), var(--enroll) 55%, var(--replay));
+          -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .06em; }
+  .lede { font-size: 15.5px; color: var(--soft); margin: 0; max-width: 56ch; }
+  .lede strong { color: var(--text); font-weight: 600; }
 
-  /* ── transit lines ─────────────────────────────── */
-  .lines { display: grid; gap: 16px; }
-  .line { display: grid; grid-template-columns: 210px 1fr; gap: 18px; align-items: start;
-          background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px 14px; }
-  .terminus { display: grid; gap: 4px; }
-  .badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
-  .badge b { width: 26px; height: 26px; border-radius: 50%; color: #fff; display: grid; place-items: center;
-             font-size: 13px; font-weight: 900; }
-  .terminus .src { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-  .terminus .hook { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px dashed var(--rule);
-                    border-radius: 4px; padding: 2px 6px; width: fit-content; }
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--panel-edge);
+           border-radius: 14px; background: var(--panel); overflow: hidden; }
+  .stat { padding: 14px 18px; display: grid; gap: 2px; }
+  .stat + .stat { border-left: 1px solid var(--hair); }
+  .stat b { font-family: var(--serif); font-weight: 400; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
 
-  .track { position: relative; display: grid;
-           grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
-  .track::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 6px;
-                   background: var(--c); border-radius: 3px; }
-  .track::after { content: ""; position: absolute; right: -2px; top: 8px; width: 0; height: 0;
-                  border-left: 12px solid var(--c); border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
-  .stop { position: relative; display: grid; grid-template-rows: 26px auto auto auto; gap: 5px; justify-items: start; align-content: start; padding-right: 6px; }
-  .stop .dot { align-self: center; }
-  .dot { width: 20px; height: 20px; border-radius: 50%; background: var(--station); border: 5px solid var(--c);
-         position: relative; z-index: 1; }
-  .stop.goal .dot { width: 26px; height: 26px; margin-top: 0; border-width: 6px; box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--c); }
-  .tool { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-          padding: 1px 6px; border-radius: 3px; background: var(--chip); color: var(--ink); }
-  .act { font-size: 13.5px; font-weight: 600; line-height: 1.25; text-wrap: balance; }
-  .why { font-size: 12px; color: var(--muted); line-height: 1.3; }
+  /* ── pipeline strip ───────────────────────────────── */
+  .pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--soft); }
+  .pipe .lbl { color: var(--muted); letter-spacing: .14em; text-transform: uppercase; font-size: 10.5px; margin-right: 6px; }
+  .pill { border: 1px solid var(--panel-edge); background: var(--panel); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+  .pill.key { border-color: rgba(233, 214, 167, .45); color: var(--gold); }
+  .arrow { color: var(--muted); }
 
-  .l-optin { --c: var(--optin); }
+  /* ── transit lines ────────────────────────────────── */
+  .lines { display: grid; gap: 14px; }
+  .line { --c: var(--optin); position: relative; display: grid; grid-template-columns: 230px 1fr; gap: 26px;
+          padding: 22px 26px 20px; border-radius: 18px; border: 1px solid var(--panel-edge);
+          background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015)); overflow: hidden; }
+  .line::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 2px;
+                  background: linear-gradient(var(--c), transparent); opacity: .9; }
   .l-enroll { --c: var(--enroll); }
   .l-replay { --c: var(--replay); }
-  .badge b { background: var(--c); }
 
-  /* ── control room ───────────────────────────────── */
-  .control { border: 2px solid var(--alarm); border-radius: 6px; background: var(--alarm-soft); padding: 16px 18px; display: grid; gap: 12px; }
-  .control h2 { margin: 0; font-size: 17px; font-weight: 900; color: var(--alarm); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
-  .control h2 small { font-family: var(--mono); font-size: 11.5px; font-weight: 400; color: var(--muted); }
-  .guards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-  .guard { display: grid; gap: 4px; align-content: start; border-top: 2px solid var(--alarm); padding-top: 8px; }
-  .guard b { font-size: 13.5px; }
-  .guard span { font-size: 12px; color: var(--muted); line-height: 1.35; }
-  .alert { font-family: var(--mono); font-size: 11.5px; background: var(--card); border: 1px solid var(--rule);
-           border-left: 4px solid var(--alarm); border-radius: 4px; padding: 8px 10px; line-height: 1.5; overflow-x: auto; white-space: pre; }
+  .terminus { display: grid; gap: 8px; align-content: start; }
+  .code { font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; color: var(--c); text-transform: uppercase; }
+  .terminus h3 { font-family: var(--serif); font-weight: 400; font-size: 27px; line-height: 1.05; margin: 0; }
+  .terminus p { margin: 0; font-size: 12.5px; color: var(--soft); }
+  .hook { font-family: var(--mono); font-size: 10.5px; color: var(--muted); border: 1px solid var(--hair);
+          border-radius: 6px; padding: 3px 8px; width: fit-content; background: rgba(0,0,0,.2); }
+
+  .track { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 12px; }
+  .track::before { content: ""; position: absolute; left: 0; right: 14px; top: 11px; height: 3px; border-radius: 3px;
+                   background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 55%, transparent));
+                   box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent); }
+  .track::after { content: ""; position: absolute; right: 2px; top: 7px; width: 11px; height: 11px;
+                  border-top: 3px solid var(--c); border-right: 3px solid var(--c); transform: rotate(45deg); border-radius: 1px; }
+  .runner { position: absolute; top: 6px; left: 0; width: 13px; height: 13px; border-radius: 50%; background: #fff;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 35%, transparent), 0 0 22px 6px var(--c);
+            animation: run 7s cubic-bezier(.5, 0, .5, 1) infinite; animation-delay: var(--d, 0s); z-index: 2; opacity: 0; }
+  @keyframes run { 0% { left: 0; opacity: 0; } 6% { opacity: 1; } 88% { opacity: 1; } 100% { left: calc(100% - 26px); opacity: 0; } }
+
+  .stop { position: relative; display: grid; grid-template-rows: 25px auto auto auto; gap: 7px; align-content: start; padding-right: 8px; }
+  .dot { align-self: center; width: 17px; height: 17px; border-radius: 50%; background: var(--bg-2); border: 3px solid var(--c); position: relative; z-index: 1; }
+  .goal .dot { width: 25px; height: 25px; background: var(--c); border: 5px solid var(--bg-2);
+               box-shadow: 0 0 0 2px var(--c), 0 0 26px 4px color-mix(in srgb, var(--c) 55%, transparent); }
+  .tool { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+          text-transform: uppercase; color: var(--soft); }
+  .tool i { font-style: normal; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
+            font-size: 9px; font-weight: 600; letter-spacing: 0; color: var(--text);
+            background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.04)); border: 1px solid var(--panel-edge); }
+  .act { font-size: 14.5px; font-weight: 600; line-height: 1.25; letter-spacing: -.005em; text-wrap: balance; }
+  .why { font-size: 12.2px; color: var(--muted); line-height: 1.4; }
+  .goal .act { color: var(--c); }
+
+  /* ── error layer ──────────────────────────────────── */
+  .control { position: relative; display: grid; grid-template-columns: 1.55fr 1fr; gap: 26px; padding: 24px 26px;
+             border-radius: 18px; border: 1px solid rgba(255, 93, 108, .35);
+             background: radial-gradient(600px 260px at 100% 0%, rgba(255, 93, 108, .14), transparent 70%),
+                         linear-gradient(180deg, rgba(255, 93, 108, .06), rgba(255, 93, 108, .015)); }
+  .control .code { --c: var(--alarm); }
+  .control h2 { font-family: var(--serif); font-weight: 400; font-size: 34px; line-height: 1.05; margin: 6px 0 16px; }
+  .control h2 em { color: var(--alarm); }
+  .guards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 26px; }
+  .guard { display: grid; grid-template-columns: 26px 1fr; gap: 2px 12px; align-items: start; }
+  .guard .n { grid-row: span 2; font-family: var(--mono); font-size: 10.5px; color: var(--alarm); border: 1px solid rgba(255, 93, 108, .4);
+              border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; }
+  .guard b { font-size: 14px; font-weight: 600; }
+  .guard span { font-size: 12.3px; color: var(--muted); line-height: 1.4; }
+  .guard.wide { grid-column: 1 / -1; }
+
+  .slack { align-self: center; background: #1a1d21; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 14px 16px;
+           box-shadow: 0 30px 60px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4); font-size: 13px; display: grid; gap: 10px; }
+  .slack .chan { font-weight: 700; font-size: 13px; color: #d1d2d3; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .slack .chan span { color: #9a9b9d; font-weight: 400; }
+  .msg { display: grid; grid-template-columns: 36px 1fr; gap: 10px; }
+  .ava { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #ff6d5a, #ea4b71);
+         display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+  .who { font-weight: 700; color: #f8f8f8; }
+  .who small { font-weight: 400; color: #9a9b9d; margin-left: 6px; font-size: 11.5px; }
+  .who .app { font-size: 9.5px; background: rgba(255,255,255,.12); color: #c9c9c9; border-radius: 3px; padding: 1px 4px; margin-left: 6px; font-weight: 600; }
+  .body { color: #d1d2d3; line-height: 1.45; }
+  .body b { color: #fff; }
+  .quote { border-left: 4px solid rgba(255,255,255,.25); padding-left: 10px; margin: 4px 0; color: #d1d2d3; font-family: var(--mono); font-size: 11.5px; }
+  .body a { color: #1d9bd1; text-decoration: none; }
 
   footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-family: var(--mono);
-           font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
-  footer b { color: var(--ink); font-weight: 600; }
+           font-size: 11px; letter-spacing: .04em; color: var(--muted); padding-top: 14px; border-top: 1px solid var(--hair); }
+  footer b { color: var(--soft); font-weight: 500; }
 
-  @media (max-width: 900px) {
-    header { grid-template-columns: 1fr; }
+  @media (max-width: 960px) {
+    .hero, .control { grid-template-columns: 1fr; }
     .line { grid-template-columns: 1fr; }
-    .guards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stat:nth-child(4) { border-left: 0; }
+    .stat:nth-child(n+4) { border-top: 1px solid var(--hair); }
   }
   @media (max-width: 640px) {
-    body { padding-inline: 16px; }
-    .track { grid-template-columns: 1fr; gap: 14px; padding-left: 34px; padding-top: 0; }
-    .track::before { left: 7px; right: auto; top: 0; bottom: 0; width: 6px; height: auto; }
-    .track::after { display: none; }
-    .stop { grid-template-columns: 1fr; grid-template-rows: none; }
-    .dot { position: absolute; left: -34px; top: 0; margin: 0; }
-    .stop.goal .dot { left: -37px; top: -3px; }
+    body { padding: 28px 16px 32px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat { border-left: 0 !important; border-top: 1px solid var(--hair); }
+    .stat:nth-child(-n+2) { border-top: 0; }
     .guards { grid-template-columns: 1fr; }
+    .track { grid-template-columns: 1fr; gap: 18px; padding-left: 36px; }
+    .track::before { left: 11px; right: auto; top: 0; bottom: 0; width: 3px; height: auto; }
+    .track::after, .runner { display: none; }
+    .stop { grid-template-rows: none; }
+    .dot { position: absolute; left: -32px; top: 2px; }
+    .goal .dot { left: -36px; top: -2px; }
   }
+  @media (prefers-reduced-motion: reduce) { .runner { display: none; } }
   @media print {
-    @page { size: 14in 11in; margin: .3in; }
-    body { padding: 0; font-size: 12px; }
-    .sheet { gap: 12px; max-width: none; }
-    .line { padding: 10px 14px; grid-template-columns: 210px 1fr; }
-    header { grid-template-columns: 1.25fr 1fr; }
-    .guards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    @page { size: 14in 14.4in; margin: 0; }
+    body { padding: .45in .5in; }
+    .runner { display: none; }
+    .hero { grid-template-columns: 1.35fr 1fr; }
+    .line { grid-template-columns: 230px 1fr; }
+    .control { grid-template-columns: 1.55fr 1fr; }
+    .stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   }
 </style>
 
 <div class="sheet">
-  <header>
+  <header class="hero">
     <div>
       <div class="eyebrow">Proposal attachment · n8n architecture</div>
-      <h1>Student Journey Autopilot</h1>
+      <h1>Student Journey <em>Autopilot</em></h1>
     </div>
-    <div>
-      <p class="problem">Today the same student lives in six tools and a person copies them between each one. Leads get dropped and access gets granted late. <b>One n8n workflow now carries every handoff</b>, and a separate alert workflow speaks up the moment any step fails.</p>
-      <div class="legend" aria-label="Line legend">
-        <span><i style="background:var(--optin)"></i>Opt-in line</span>
-        <span><i style="background:var(--enroll)"></i>Enrollment line</span>
-        <span><i style="background:var(--replay)"></i>Replay line</span>
-        <span><i style="background:var(--alarm)"></i>Error layer</span>
-      </div>
-    </div>
+    <p class="lede">Today every student lives in six tools and a person copies them from one to the next. Leads get dropped and course access arrives late. <strong>One n8n workflow now carries every handoff</strong>, and a separate alert workflow speaks up the moment any step fails.</p>
   </header>
+
+  <section class="stats" aria-label="At a glance">
+    <div class="stat"><b>6</b><span>tools connected</span></div>
+    <div class="stat"><b>3</b><span>journeys automated</span></div>
+    <div class="stat"><b>0</b><span>manual handoffs</span></div>
+    <div class="stat"><b>3×</b><span>retries on every API call</span></div>
+    <div class="stat"><b>1</b><span>config step to maintain</span></div>
+  </section>
+
+  <div class="pipe" aria-label="How every event enters">
+    <span class="lbl">Every event</span>
+    <span class="pill">Webhook · secret-verified</span><span class="arrow">→</span>
+    <span class="pill">Normalize source</span><span class="arrow">→</span>
+    <span class="pill key">Load Config · IDs &amp; mappings</span><span class="arrow">→</span>
+    <span class="pill">Route by event</span><span class="arrow">→</span>
+    <span class="pill">Line A · B · C</span>
+  </div>
 
   <section class="lines" aria-label="Journey lines">
     <article class="line l-optin">
       <div class="terminus">
-        <span class="badge"><b>A</b>Webinar opt-in</span>
-        <span class="src">WordPress landing page or GoHighLevel funnel form</span>
+        <span class="code">Line A</span>
+        <h3>Webinar opt-in</h3>
+        <p>WordPress landing page or GoHighLevel funnel form</p>
         <span class="hook">POST /student-journey/optin</span>
       </div>
       <div class="track" style="--n:6">
-        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Contact upserted</span><span class="why">No duplicates, even on resubmits</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Tagged “webinar-registered”</span><span class="why">Tag drives list choice downstream</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">Zoom</span><span class="act">Webinar registrant added</span><span class="why">Zoom sends the calendar invite and reminders</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">Profile saved with join link</span><span class="why">Written before the flow fires, so email 1 has it</span></div>
-        <div class="stop goal"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">Added to nurture list</span><span class="why">List’s flow starts the nurture sequence</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Join link saved on contact</span><span class="why">Available for SMS reminders</span></div>
+        <span class="runner" aria-hidden="true"></span>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>GH</i>GoHighLevel</span><span class="act">Contact upserted</span><span class="why">No duplicates, even on resubmits</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>GH</i>GoHighLevel</span><span class="act">Tagged “webinar-registered”</span><span class="why">The tag picks the Klaviyo list</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>ZM</i>Zoom</span><span class="act">Webinar registrant added</span><span class="why">Zoom sends the calendar invite and reminders</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>KL</i>Klaviyo</span><span class="act">Profile saved with join link</span><span class="why">Written first, so email 1 already has it</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool"><i>KL</i>Klaviyo</span><span class="act">Nurture flow starts</span><span class="why">Added to the list that triggers the sequence</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>GH</i>GoHighLevel</span><span class="act">Join link on contact</span><span class="why">Ready for SMS reminders</span></div>
       </div>
     </article>
 
     <article class="line l-enroll">
       <div class="terminus">
-        <span class="badge"><b>B</b>Purchase → access</span>
-        <span class="src">WooCommerce order, GHL order or Stripe checkout</span>
+        <span class="code">Line B</span>
+        <h3>Purchase → access</h3>
+        <p>WooCommerce order, GHL order or Stripe checkout</p>
         <span class="hook">POST /student-journey/enrollment</span>
       </div>
       <div class="track" style="--n:4">
-        <div class="stop"><span class="dot"></span><span class="tool">WordPress</span><span class="act">Student account found or created</span><span class="why">Exact email match, never a second account</span></div>
-        <div class="stop goal"><span class="dot"></span><span class="tool">LearnDash</span><span class="act">Course unlocked</span><span class="why">One grant per product purchased; nobody flips a switch</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">GoHighLevel</span><span class="act">Tagged “enrolled”</span><span class="why">Sales pipeline stays accurate</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">“Course Enrolled” event</span><span class="why">Starts onboarding, ends the webinar nurture</span></div>
+        <span class="runner" style="--d:-2.3s" aria-hidden="true"></span>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>WP</i>WordPress</span><span class="act">Student account found or created</span><span class="why">Exact email match, never a second account</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool"><i>LD</i>LearnDash</span><span class="act">Course unlocked</span><span class="why">One grant per product bought. Nobody flips a switch.</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>GH</i>GoHighLevel</span><span class="act">Tagged “enrolled”</span><span class="why">The sales pipeline stays accurate</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>KL</i>Klaviyo</span><span class="act">“Course Enrolled” event</span><span class="why">Starts onboarding and ends the webinar nurture</span></div>
       </div>
     </article>
 
     <article class="line l-replay">
       <div class="terminus">
-        <span class="badge"><b>C</b>Recording → replay</span>
-        <span class="src">Riverside recording ready</span>
+        <span class="code">Line C</span>
+        <h3>Recording → replay</h3>
+        <p>Riverside recording ready</p>
         <span class="hook">POST /student-journey/replay</span>
       </div>
       <div class="track" style="--n:3">
-        <div class="stop"><span class="dot"></span><span class="tool">Zoom</span><span class="act">Registrants and attendees pulled</span><span class="why">Reads happen first, so a failure leaves nothing half-done</span></div>
-        <div class="stop"><span class="dot"></span><span class="tool">WordPress</span><span class="act">Members-only replay post published</span><span class="why">Riverside link embedded in the Replays category</span></div>
-        <div class="stop goal"><span class="dot"></span><span class="tool">Klaviyo</span><span class="act">“Replay Ready” event per registrant</span><span class="why">attended = true / false picks “thanks for coming” or “you missed it”</span></div>
+        <span class="runner" style="--d:-4.6s" aria-hidden="true"></span>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>ZM</i>Zoom</span><span class="act">Registrants and attendees pulled</span><span class="why">Reads run first, so a failure leaves nothing half-done</span></div>
+        <div class="stop"><span class="dot"></span><span class="tool"><i>WP</i>WordPress</span><span class="act">Members-only replay published</span><span class="why">Riverside link posted in the Replays category</span></div>
+        <div class="stop goal"><span class="dot"></span><span class="tool"><i>KL</i>Klaviyo</span><span class="act">“Replay Ready” to each registrant</span><span class="why">Attendees get “thanks for coming”, no-shows get “you missed it”</span></div>
       </div>
     </article>
   </section>
 
   <section class="control" aria-label="Error handling layer">
-    <h2>Error layer: nothing fails silently <small>separate workflow · Error Trigger + daily schedule</small></h2>
-    <div class="guards">
-      <div class="guard"><b>Retry 3× on every API call</b><span>3 seconds apart, which absorbs rate limits and brief outages without anyone noticing.</span></div>
-      <div class="guard"><b>Slack + email alert</b><span>Names the tool, the failing step and the API error, with a link to the exact run.</span></div>
-      <div class="guard"><b>Safe one-click retry</b><span>Every write is an upsert or deduplicated (Klaviyo unique_id), so rerunning never double-sends.</span></div>
-      <div class="guard"><b>Loud on bad config</b><span>A new product with no course mapped, or a tag with no list, raises an alert instead of dropping the student.</span></div>
-      <div class="guard"><b>7:30 am health check</b><span>Tests all four credentials daily and warns before an expired token reaches a real signup.</span></div>
+    <div>
+      <span class="code">Error layer · separate workflow</span>
+      <h2>Nothing fails <em>silently</em></h2>
+      <div class="guards">
+        <div class="guard"><span class="n">01</span><b>Automatic retries</b><span>3 tries, 3 seconds apart. Rate limits and brief outages clear on their own.</span></div>
+        <div class="guard"><span class="n">02</span><b>Slack + email alert</b><span>Names the tool, the step and the API error, with a link to the exact run.</span></div>
+        <div class="guard"><span class="n">03</span><b>Safe one-click retry</b><span>Every write is an upsert or deduplicated, so rerunning never double-sends.</span></div>
+        <div class="guard"><span class="n">04</span><b>Loud on missing config</b><span>A product with no course mapped raises an alert. The student is never silently dropped.</span></div>
+        <div class="guard wide"><span class="n">05</span><b>7:30 am health check</b><span>Tests all four logins daily and warns before an expired token reaches a real signup.</span></div>
+      </div>
     </div>
-    <div class="alert">🚨 Student Journey failed at Zoom · Register for Webinar (HTTP 503)
-&gt; Zoom is temporarily unavailable
-Open execution → fix → click Retry (all steps are safe to re-run).</div>
+    <div class="slack" aria-label="Example alert">
+      <div class="chan"># automation-alerts <span>· example</span></div>
+      <div class="msg">
+        <div class="ava">n8n</div>
+        <div>
+          <div class="who">Journey Alerts<span class="app">APP</span><small>9:41 AM</small></div>
+          <div class="body">🚨 <b>Student Journey</b> failed at <b>Zoom · Register for Webinar</b> (HTTP 503)
+            <div class="quote">Zoom is temporarily unavailable</div>
+            <a href="#" onclick="return false">Open execution</a> → fix → click <b>Retry</b>. All steps are safe to re-run.</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <footer>
-    <span><b>2 n8n workflows</b> · 3 webhook triggers · 44 nodes · <b>1 Config node</b> holds every ID and mapping</span>
-    <span>Ships with a local mock of all five APIs so the full journey runs on test data</span>
+    <span><b>2 n8n workflows</b> · 3 webhook triggers · 44 nodes · tested end-to-end on n8n 2.40</span>
+    <span>WordPress · GoHighLevel · Klaviyo · Zoom · LearnDash · Riverside</span>
   </footer>
 </div>
